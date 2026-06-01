@@ -49,6 +49,54 @@ button {
   padding: 24px;
 }
 
+.auth-shell {
+  display: grid;
+  place-items: center;
+}
+
+.auth-panel {
+  width: min(440px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 28px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.auth-title {
+  margin: 0;
+  font-size: 1.45rem;
+  letter-spacing: 0;
+}
+
+.auth-subtitle {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
+.auth-button {
+  width: 100%;
+}
+
+.auth-status {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.auth-warning {
+  width: 100%;
+  text-align: left;
+}
+
 .app-frame {
   display: grid;
   gap: 18px;
@@ -123,6 +171,36 @@ button {
   color: var(--danger);
   background: #fff0ed;
   border-color: #f5b5ad;
+}
+
+.user-pill,
+.viewer-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 11px;
+  color: var(--muted);
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.user-pill.admin {
+  color: #7a4a08;
+  background: #fff3d7;
+  border-color: #efc56d;
+}
+
+.user-pill.viewer,
+.viewer-badge {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-color: #a8dcd6;
 }
 
 .section-tabs {

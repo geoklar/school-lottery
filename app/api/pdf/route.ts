@@ -1,3 +1,9 @@
+import { getServerSession } from "next-auth";
+
+import { authOptions, type AppSession } from "../../../lib/auth";
+import { ensureLotterySchema, getSql, hasDatabaseUrl, SETTINGS_ID } from "../../../lib/lottery-db";
+import { isLotteryComplete } from "../../../lib/lottery-counts";
+
 export const runtime = "nodejs";
 
 type PrizeResult = {
@@ -11,6 +17,7 @@ type PrizeResult = {
 type PdfPayload = {
   schoolName?: string;
   eventTitle?: string;
+  expectedTotal?: number;
   generatedAt?: string;
   results?: PrizeResult[];
 };
@@ -29,6 +36,14 @@ type PdfFontsLike = {
   pdfMake?: {
     vfs?: Record<string, string>;
   };
+};
+
+type PersistedResultRow = {
+  order_number: number;
+  batch: number;
+  prize: string;
+  ticket: string;
+  drawn_at: Date | string;
 };
 
 function cleanText(value: unknown, fallback: string) {
@@ -99,9 +114,75 @@ function normalizeResults(results: unknown) {
     .slice(0, 1000);
 }
 
-export async function POST(request: Request) {
-  try {
+function toIsoDate(value: Date | string) {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+async function resolvePdfPayload(request: Request): Promise<PdfPayload> {
+  if (!hasDatabaseUrl()) {
     const payload = (await request.json()) as PdfPayload;
+    const expectedTotal = Number(payload.expectedTotal);
+    const results = normalizeResults(payload.results);
+
+    if (!Number.isFinite(expectedTotal) || expectedTotal <= 0 || results.length < expectedTotal) {
+      throw new Response("Lottery is not complete", { status: 409 });
+    }
+
+    return {
+      ...payload,
+      results,
+    };
+  }
+
+  await ensureLotterySchema();
+  const sql = getSql();
+  const [settings] = await sql`
+    select school_name, event_title, booklet_input, ticket_input, prize_input
+    from lottery_settings
+    where id = ${SETTINGS_ID}
+    limit 1
+  `;
+  const results = await sql<PersistedResultRow[]>`
+    select order_number, batch, prize, ticket, drawn_at
+    from lottery_results
+    order by order_number asc
+  `;
+  const state = {
+    bookletInput: settings?.booklet_input ?? "",
+    prizeInput: settings?.prize_input ?? "",
+    results,
+    ticketInput: settings?.ticket_input ?? "",
+  };
+
+  if (!isLotteryComplete(state)) {
+    throw new Response("Lottery is not complete", {
+      status: 409,
+    });
+  }
+
+  return {
+    eventTitle: settings?.event_title,
+    generatedAt: new Date().toISOString(),
+    results: results.map((result) => ({
+      order: result.order_number,
+      batch: result.batch,
+      prize: result.prize,
+      ticket: result.ticket,
+      drawnAt: toIsoDate(result.drawn_at),
+    })),
+    schoolName: settings?.school_name,
+  };
+}
+
+export async function POST(request: Request) {
+  const session = (await getServerSession(authOptions)) as AppSession | null;
+
+  if (!session) {
+    return Response.json({ error: "Authentication required" }, { status: 401 });
+  }
+
+  try {
+    const payload = await resolvePdfPayload(request);
     const schoolName = cleanText(payload.schoolName, "19ο Δημοτικό Σχολείο Θεσσαλονίκης");
     const eventTitle = cleanText(payload.eventTitle, "Σχολική γιορτή λήξης σχολικού έτους");
     const generatedAt = cleanText(payload.generatedAt, new Date().toISOString());
@@ -237,6 +318,10 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof Response) {
+      return error;
+    }
+
     console.error(error);
     return Response.json({ error: "PDF generation failed" }, { status: 500 });
   }

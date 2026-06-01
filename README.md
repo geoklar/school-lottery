@@ -16,9 +16,10 @@ Web εφαρμογή για κλήρωση δώρων από λαχνούς, έ�
    - Παράδειγμα: `Ποδήλατο | https://example.com/bike.jpg`
 6. Διάλεξε πόσα δώρα θα κληρώνονται ανά παρτίδα και κάθε πόσα δευτερόλεπτα.
 7. Γύρισε στην ενότητα `Κλήρωση` και πάτησε `Εκκίνηση`.
-8. Στο τέλος, πάτησε `PDF αποτελεσμάτων`.
+8. Όταν ολοκληρωθεί η κλήρωση, πάτησε `PDF αποτελεσμάτων`.
 
 Τα δεδομένα αποθηκεύονται τοπικά στον browser για να μη χαθούν με ανανέωση της σελίδας.
+Με Google SSO ενεργό, οι απλοί χρήστες βλέπουν μόνο τα αποτελέσματα. Το `geoklar@gmail.com` έχει δικαίωμα για `Admin`, εκκίνηση/παύση/νέα κλήρωση και αλλαγές δεδομένων.
 
 ## Τοπική εκτέλεση
 
@@ -50,10 +51,34 @@ migrations/001_init.sql
 
 Αν δεν υπάρχει `DATABASE_URL`, η εφαρμογή λειτουργεί προσωρινά με τοπική αποθήκευση στον browser και εμφανίζει ένδειξη `Τοπικά`.
 
+## Google SSO
+
+Η εφαρμογή χρησιμοποιεί Google OAuth μέσω NextAuth. Χωρίς τα παρακάτω variables, η σελίδα μένει κλειδωμένη και εμφανίζει μήνυμα ότι δεν έχει ρυθμιστεί SSO.
+
+```bash
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+NEXTAUTH_SECRET="..."
+NEXTAUTH_URL="https://school-lottery.vercel.app"
+```
+
+Στο Google Cloud Console δημιούργησε OAuth Client τύπου `Web application` και πρόσθεσε redirect URI:
+
+```text
+https://school-lottery.vercel.app/api/auth/callback/google
+```
+
+Για local development μπορείς να προσθέσεις και:
+
+```text
+http://localhost:3000/api/auth/callback/google
+http://127.0.0.1:3001/api/auth/callback/google
+```
+
 ## Deploy στο Vercel
 
 1. Ανέβασε τον φάκελο σε GitHub repository.
 2. Στο Vercel, επίλεξε `New Project`.
 3. Σύνδεσε το repository.
-4. Πρόσθεσε το `DATABASE_URL` στα Environment Variables του project.
+4. Πρόσθεσε τα `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL` στα Environment Variables του project.
 5. Άφησε τις προεπιλογές για Next.js και πάτησε `Deploy`.

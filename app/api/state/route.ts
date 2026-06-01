@@ -1,4 +1,8 @@
+import { getServerSession } from "next-auth";
+
+import { authOptions, type AppSession, isAdminSession } from "../../../lib/auth";
 import { ensureLotterySchema, getSql, hasDatabaseUrl, SETTINGS_ID } from "../../../lib/lottery-db";
+import { getLotteryCounts } from "../../../lib/lottery-counts";
 
 export const runtime = "nodejs";
 
@@ -113,11 +117,30 @@ function toIsoDate(value: Date | string) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
+function sanitizeViewerState(state: LotteryState): LotteryState {
+  return {
+    ...state,
+    bookletInput: "",
+    ticketInput: "",
+    prizeInput: "",
+  };
+}
+
 export async function GET() {
+  const session = (await getServerSession(authOptions)) as AppSession | null;
+
+  if (!session) {
+    return Response.json({ error: "Authentication required" }, { status: 401 });
+  }
+
+  const isAdmin = isAdminSession(session);
+
   if (!hasDatabaseUrl()) {
     return Response.json({
       databaseAvailable: false,
-      state: defaultState,
+      permissions: { isAdmin },
+      publicStats: getLotteryCounts(defaultState),
+      state: isAdmin ? defaultState : sanitizeViewerState(defaultState),
     });
   }
 
@@ -137,27 +160,31 @@ export async function GET() {
       order by order_number asc
     `;
 
+    const state: LotteryState = {
+      schoolName: settings?.school_name ?? defaultState.schoolName,
+      eventTitle: settings?.event_title ?? defaultState.eventTitle,
+      bookletInput: settings?.booklet_input ?? "",
+      ticketInput: settings?.ticket_input ?? "",
+      prizeInput: settings?.prize_input ?? "",
+      batchSize: settings?.batch_size ?? defaultState.batchSize,
+      intervalSeconds: settings?.interval_seconds ?? defaultState.intervalSeconds,
+      results: results.map((result) => ({
+        id: result.id,
+        order: result.order_number,
+        batch: result.batch,
+        prize: result.prize,
+        ticket: result.ticket,
+        drawnAt: toIsoDate(result.drawn_at),
+        imageUrl: result.image_url ?? undefined,
+        visualKey: result.visual_key ?? undefined,
+      })),
+    };
+
     return Response.json({
       databaseAvailable: true,
-      state: {
-        schoolName: settings?.school_name ?? defaultState.schoolName,
-        eventTitle: settings?.event_title ?? defaultState.eventTitle,
-        bookletInput: settings?.booklet_input ?? "",
-        ticketInput: settings?.ticket_input ?? "",
-        prizeInput: settings?.prize_input ?? "",
-        batchSize: settings?.batch_size ?? defaultState.batchSize,
-        intervalSeconds: settings?.interval_seconds ?? defaultState.intervalSeconds,
-        results: results.map((result) => ({
-          id: result.id,
-          order: result.order_number,
-          batch: result.batch,
-          prize: result.prize,
-          ticket: result.ticket,
-          drawnAt: toIsoDate(result.drawn_at),
-          imageUrl: result.image_url ?? undefined,
-          visualKey: result.visual_key ?? undefined,
-        })),
-      } satisfies LotteryState,
+      permissions: { isAdmin },
+      publicStats: getLotteryCounts(state),
+      state: isAdmin ? state : sanitizeViewerState(state),
     });
   } catch (error) {
     console.error(error);
@@ -165,7 +192,9 @@ export async function GET() {
       {
         databaseAvailable: false,
         error: "Database read failed",
-        state: defaultState,
+        permissions: { isAdmin },
+        publicStats: getLotteryCounts(defaultState),
+        state: isAdmin ? defaultState : sanitizeViewerState(defaultState),
       },
       { status: 500 },
     );
@@ -173,6 +202,16 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const session = (await getServerSession(authOptions)) as AppSession | null;
+
+  if (!session) {
+    return Response.json({ error: "Authentication required" }, { status: 401 });
+  }
+
+  if (!isAdminSession(session)) {
+    return Response.json({ error: "Admin access required" }, { status: 403 });
+  }
+
   if (!hasDatabaseUrl()) {
     return Response.json(
       { databaseAvailable: false, error: "DATABASE_URL is not configured" },

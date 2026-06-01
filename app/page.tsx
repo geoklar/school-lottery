@@ -16,6 +16,7 @@ import {
   RefreshCcw,
   School,
   Settings,
+  ShieldCheck,
   Shirt,
   Shuffle,
   Smartphone,
@@ -23,8 +24,12 @@ import {
   Trash2,
   Trophy,
   Utensils,
+  LogIn,
+  LogOut,
+  User,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { getProviders, signIn, signOut, SessionProvider, useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type DrawStatus = "ready" | "running" | "paused" | "done";
@@ -71,6 +76,18 @@ type SavedState = {
   batchSize: number;
   intervalSeconds: number;
   results: PrizeResult[];
+};
+type PublicStats = {
+  drawTotal: number;
+  prizeCount: number;
+  resultCount: number;
+  ticketCount: number;
+};
+type SessionUserWithRole = {
+  email?: string | null;
+  image?: string | null;
+  isAdmin?: boolean;
+  name?: string | null;
 };
 
 const STORAGE_KEY = "school-lottery-state-v1";
@@ -430,7 +447,62 @@ function PrizeVisual({
   );
 }
 
+function AuthScreen({
+  hasGoogleProvider,
+  isLoading,
+}: {
+  hasGoogleProvider: boolean | null;
+  isLoading: boolean;
+}) {
+  return (
+    <main className="shell auth-shell">
+      <section className="auth-panel">
+        <div className="school-mark" aria-hidden="true">
+          <School size={26} />
+        </div>
+        <div>
+          <h1 className="auth-title">Κλήρωση δώρων</h1>
+          <p className="auth-subtitle">Σύνδεση με Google για προβολή αποτελεσμάτων.</p>
+        </div>
+
+        {isLoading ? (
+          <div className="auth-status">Έλεγχος σύνδεσης...</div>
+        ) : (
+          <button
+            className="button primary auth-button"
+            disabled={hasGoogleProvider === false}
+            type="button"
+            onClick={() => signIn("google")}
+          >
+            <LogIn size={18} />
+            Σύνδεση με Google
+          </button>
+        )}
+
+        {hasGoogleProvider === false ? (
+          <div className="warning auth-warning">
+            <AlertTriangle size={18} />
+            <span>Δεν έχει ρυθμιστεί ακόμα Google SSO στο Vercel.</span>
+          </div>
+        ) : null}
+      </section>
+    </main>
+  );
+}
+
 export default function Home() {
+  return (
+    <SessionProvider>
+      <LotteryApp />
+    </SessionProvider>
+  );
+}
+
+function LotteryApp() {
+  const { data: session, status: sessionStatus } = useSession();
+  const sessionUser = session?.user as SessionUserWithRole | undefined;
+  const isAuthenticated = sessionStatus === "authenticated";
+  const isAdmin = Boolean(sessionUser?.isAdmin);
   const [schoolName, setSchoolName] = useState("19ο Δημοτικό Σχολείο Θεσσαλονίκης");
   const [eventTitle, setEventTitle] = useState("Σχολική γιορτή λήξης σχολικού έτους");
   const [bookletInput, setBookletInput] = useState("");
@@ -449,6 +521,8 @@ export default function Home() {
   const [activeSection, setActiveSection] = useState<ActiveSection>("draw");
   const [storageMode, setStorageMode] = useState<StorageMode>("loading");
   const [isRemoteSaving, setIsRemoteSaving] = useState(false);
+  const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
+  const [hasGoogleProvider, setHasGoogleProvider] = useState<boolean | null>(null);
 
   const bookletData = useMemo(() => parseBooklets(bookletInput), [bookletInput]);
   const manualTickets = useMemo(() => parseTickets(ticketInput), [ticketInput]);
@@ -463,19 +537,26 @@ export default function Home() {
     () => (latestBatch > 0 ? results.filter((result) => result.batch === latestBatch) : []),
     [latestBatch, results],
   );
-  const drawTotal = drawPlan.length > 0 ? drawPlan.length : Math.min(tickets.length, prizes.length);
+  const displayTicketCount = isAdmin ? tickets.length : (publicStats?.ticketCount ?? tickets.length);
+  const displayPrizeCount = isAdmin ? prizes.length : (publicStats?.prizeCount ?? prizes.length);
+  const savedDrawTotal = isAdmin
+    ? Math.min(tickets.length, prizes.length)
+    : (publicStats?.drawTotal ?? Math.min(tickets.length, prizes.length));
+  const drawTotal = drawPlan.length > 0 ? drawPlan.length : savedDrawTotal;
   const totalBatches = drawTotal > 0 ? Math.ceil(drawTotal / batchSize) : 0;
   const drawProgress = drawTotal > 0 ? Math.round((results.length / drawTotal) * 100) : 0;
   const displayedRemaining = Math.max(0, drawTotal - results.length);
+  const isDrawComplete = drawTotal > 0 && results.length >= drawTotal;
+  const effectiveDrawStatus = isDrawComplete ? "done" : drawStatus;
   const timerProgress =
-    drawStatus === "done"
+    effectiveDrawStatus === "done"
       ? 100
       : drawStatus === "running"
         ? Math.min(100, Math.max(0, ((intervalSeconds - countdown) / intervalSeconds) * 100))
         : 0;
-  const canStart = tickets.length > 0 && prizes.length > 0 && drawStatus !== "running";
-  const canDownloadPdf = results.length > 0 && !isPdfLoading;
-  const hasShortTicketList = tickets.length > 0 && prizes.length > tickets.length;
+  const canStart = isAdmin && tickets.length > 0 && prizes.length > 0 && drawStatus !== "running";
+  const canDownloadPdf = isAuthenticated && isDrawComplete && !isPdfLoading && !isRemoteSaving;
+  const hasShortTicketList = displayTicketCount > 0 && displayPrizeCount > displayTicketCount;
   const startButtonLabel =
     drawStatus === "paused" ? "Συνέχεια" : results.length > 0 ? "Νέα κλήρωση" : "Εκκίνηση";
   const storageLabel =
@@ -493,6 +574,36 @@ export default function Home() {
     setToast(message);
     window.setTimeout(() => setToast(""), 3600);
   }, []);
+
+  useEffect(() => {
+    if (sessionStatus !== "unauthenticated") {
+      return;
+    }
+
+    let isMounted = true;
+
+    getProviders()
+      .then((providers) => {
+        if (isMounted) {
+          setHasGoogleProvider(Boolean(providers?.google));
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setHasGoogleProvider(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [sessionStatus]);
+
+  useEffect(() => {
+    if (!isAdmin && activeSection === "admin") {
+      setActiveSection("draw");
+    }
+  }, [activeSection, isAdmin]);
 
   const revealNextBatch = useCallback(() => {
     const nextItems = drawPlan.slice(cursor, cursor + batchSize);
@@ -659,8 +770,8 @@ export default function Home() {
   }, [bookletInput, prizeInput, ticketInput]);
 
   const downloadPdf = useCallback(async () => {
-    if (!results.length) {
-      showToast("Δεν υπάρχουν ακόμα αποτελέσματα για PDF.");
+    if (!isDrawComplete) {
+      showToast("Το PDF θα είναι διαθέσιμο μετά την ολοκλήρωση της κλήρωσης.");
       return;
     }
 
@@ -675,6 +786,7 @@ export default function Home() {
         body: JSON.stringify({
           schoolName,
           eventTitle,
+          expectedTotal: drawTotal,
           results,
           generatedAt: new Date().toISOString(),
         }),
@@ -699,7 +811,7 @@ export default function Home() {
     } finally {
       setIsPdfLoading(false);
     }
-  }, [eventTitle, results, schoolName, showToast]);
+  }, [drawTotal, eventTitle, isDrawComplete, results, schoolName, showToast]);
 
   const applySavedState = useCallback((parsed: Partial<SavedState>) => {
     setSchoolName(parsed.schoolName || "19ο Δημοτικό Σχολείο Θεσσαλονίκης");
@@ -732,6 +844,10 @@ export default function Home() {
   }, [applySavedState]);
 
   useEffect(() => {
+    if (sessionStatus !== "authenticated") {
+      return;
+    }
+
     let isMounted = true;
 
     async function loadState() {
@@ -746,6 +862,10 @@ export default function Home() {
 
         const payload = (await response.json()) as {
           databaseAvailable?: boolean;
+          permissions?: {
+            isAdmin?: boolean;
+          };
+          publicStats?: PublicStats;
           state?: Partial<SavedState>;
         };
 
@@ -755,13 +875,24 @@ export default function Home() {
 
         if (payload.databaseAvailable && payload.state) {
           applySavedState(payload.state);
+          setPublicStats(payload.publicStats ?? null);
           setStorageMode("database");
         } else {
-          loadLocalState();
+          setPublicStats(payload.publicStats ?? null);
+
+          if (isAdmin) {
+            loadLocalState();
+          } else {
+            setStorageMode("local");
+          }
         }
       } catch {
         if (isMounted) {
-          loadLocalState();
+          if (isAdmin) {
+            loadLocalState();
+          } else {
+            setStorageMode("error");
+          }
         }
       } finally {
         if (isMounted) {
@@ -775,10 +906,10 @@ export default function Home() {
     return () => {
       isMounted = false;
     };
-  }, [applySavedState, loadLocalState]);
+  }, [applySavedState, isAdmin, loadLocalState, sessionStatus]);
 
   useEffect(() => {
-    if (!hasLoadedSavedState) {
+    if (!hasLoadedSavedState || !isAdmin || sessionStatus !== "authenticated") {
       return;
     }
 
@@ -840,9 +971,11 @@ export default function Home() {
     eventTitle,
     hasLoadedSavedState,
     intervalSeconds,
+    isAdmin,
     prizeInput,
     results,
     schoolName,
+    sessionStatus,
     storageMode,
     ticketInput,
   ]);
@@ -871,6 +1004,14 @@ export default function Home() {
     }
   }, [drawStatus, intervalSeconds, results.length]);
 
+  if (sessionStatus === "loading") {
+    return <AuthScreen hasGoogleProvider={hasGoogleProvider} isLoading />;
+  }
+
+  if (!isAuthenticated) {
+    return <AuthScreen hasGoogleProvider={hasGoogleProvider} isLoading={false} />;
+  }
+
   return (
     <main className="shell">
       <div className="app-frame">
@@ -890,6 +1031,13 @@ export default function Home() {
               <Database size={16} />
               {storageLabel}
             </span>
+            <span className={`user-pill ${isAdmin ? "admin" : "viewer"}`}>
+              {isAdmin ? <ShieldCheck size={16} /> : <User size={16} />}
+              {sessionUser?.email}
+            </span>
+            <button className="button ghost icon-only" type="button" onClick={() => signOut()} title="Αποσύνδεση">
+              <LogOut size={18} />
+            </button>
 
             <div className="section-tabs" aria-label="Ενότητες εφαρμογής">
               <button
@@ -900,14 +1048,16 @@ export default function Home() {
                 <Gift size={17} />
                 Κλήρωση
               </button>
-              <button
-                className={`tab-button ${activeSection === "admin" ? "active" : ""}`}
-                type="button"
-                onClick={() => setActiveSection("admin")}
-              >
-                <Settings size={17} />
-                Admin
-              </button>
+              {isAdmin ? (
+                <button
+                  className={`tab-button ${activeSection === "admin" ? "active" : ""}`}
+                  type="button"
+                  onClick={() => setActiveSection("admin")}
+                >
+                  <Settings size={17} />
+                  Admin
+                </button>
+              ) : null}
             </div>
           </div>
         </header>
@@ -1066,31 +1216,40 @@ export default function Home() {
                 <p className="panel-subtitle">{schoolName}</p>
               </div>
               <div className="toolbar">
-                {drawStatus === "running" ? (
-                  <button className="button" type="button" onClick={pauseDraw}>
-                    <Pause size={17} />
-                    Παύση
-                  </button>
-                ) : (
-                  <button
-                    className="button primary"
-                    type="button"
-                    disabled={!canStart}
-                    onClick={startDraw}
-                  >
-                    <Play size={17} />
-                    {startButtonLabel}
-                  </button>
-                )}
+                {isAdmin ? (
+                  <>
+                    {drawStatus === "running" ? (
+                      <button className="button" type="button" onClick={pauseDraw}>
+                        <Pause size={17} />
+                        Παύση
+                      </button>
+                    ) : (
+                      <button
+                        className="button primary"
+                        type="button"
+                        disabled={!canStart}
+                        onClick={startDraw}
+                      >
+                        <Play size={17} />
+                        {startButtonLabel}
+                      </button>
+                    )}
 
-                <button
-                  className="button ghost icon-only"
-                  type="button"
-                  onClick={resetDraw}
-                  title="Καθαρισμός αποτελεσμάτων"
-                >
-                  <RefreshCcw size={18} />
-                </button>
+                    <button
+                      className="button ghost icon-only"
+                      type="button"
+                      onClick={resetDraw}
+                      title="Καθαρισμός αποτελεσμάτων"
+                    >
+                      <RefreshCcw size={18} />
+                    </button>
+                  </>
+                ) : (
+                  <span className="viewer-badge">
+                    <ShieldCheck size={17} />
+                    Προβολή αποτελεσμάτων
+                  </span>
+                )}
               </div>
             </div>
 
@@ -1098,12 +1257,12 @@ export default function Home() {
               <div className="live-area">
                 <div className="status-strip">
                   <span className="status-pill">
-                    <span className={`status-dot ${drawStatus}`} />
+                    <span className={`status-dot ${effectiveDrawStatus}`} />
                     {drawStatus === "running"
                       ? "Σε εξέλιξη"
                       : drawStatus === "paused"
                         ? "Σε παύση"
-                        : drawStatus === "done"
+                        : effectiveDrawStatus === "done"
                           ? "Ολοκληρώθηκε"
                           : "Έτοιμη"}
                   </span>
@@ -1183,11 +1342,11 @@ export default function Home() {
               <aside className="control-panel">
                 <div className="metrics">
                   <div className="metric">
-                    <span className="metric-value">{tickets.length}</span>
+                    <span className="metric-value">{displayTicketCount}</span>
                     <span className="metric-label">Λαχνοί</span>
                   </div>
                   <div className="metric">
-                    <span className="metric-value">{prizes.length}</span>
+                    <span className="metric-value">{displayPrizeCount}</span>
                     <span className="metric-label">Δώρα</span>
                   </div>
                   <div className="metric">
@@ -1202,8 +1361,8 @@ export default function Home() {
 
                 <div className="timer">
                   <div>
-                    <strong>{drawStatus === "done" ? 0 : drawStatus === "running" ? countdown : intervalSeconds}</strong>
-                    <span>{drawStatus === "done" ? "Ολοκληρώθηκε" : "Επόμενη παρτίδα"}</span>
+                    <strong>{effectiveDrawStatus === "done" ? 0 : drawStatus === "running" ? countdown : intervalSeconds}</strong>
+                    <span>{effectiveDrawStatus === "done" ? "Ολοκληρώθηκε" : "Επόμενη παρτίδα"}</span>
                   </div>
                   <Shuffle size={28} />
                   <div className="timer-progress" aria-hidden="true">
@@ -1248,7 +1407,13 @@ export default function Home() {
                   onClick={downloadPdf}
                 >
                   <Download size={17} />
-                  {isPdfLoading ? "Δημιουργία..." : "PDF αποτελεσμάτων"}
+                  {isPdfLoading
+                    ? "Δημιουργία..."
+                    : isDrawComplete && isRemoteSaving
+                      ? "Αποθήκευση..."
+                      : isDrawComplete
+                      ? "PDF αποτελεσμάτων"
+                      : "PDF μετά την ολοκλήρωση"}
                 </button>
               </aside>
             </div>
