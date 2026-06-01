@@ -479,8 +479,97 @@ button {
   animation: pulse 900ms ease-in-out infinite;
 }
 
+.status-dot.paused {
+  background: var(--gold);
+}
+
 .status-dot.done {
   background: var(--accent);
+}
+
+.live-results {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.live-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.live-summary div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.summary-label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.live-summary strong {
+  font-size: 1.06rem;
+  line-height: 1.2;
+}
+
+.live-summary span:last-child {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.summary-count {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-width: 108px;
+  min-height: 64px;
+  padding: 8px 12px;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 8px;
+}
+
+.summary-count strong {
+  font-size: 1.55rem;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.summary-count span {
+  margin-top: 4px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.overall-progress,
+.progress-bar {
+  height: 14px;
+  overflow: hidden;
+  background: #ded6ca;
+  border-radius: 999px;
+}
+
+.overall-progress span,
+.progress-bar span,
+.timer-progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width 220ms ease;
 }
 
 .live-grid {
@@ -507,6 +596,7 @@ button {
 .winner-card.latest {
   border-color: rgba(191, 123, 22, 0.78);
   box-shadow: 0 10px 25px rgba(191, 123, 22, 0.14);
+  animation: revealCard 380ms ease both;
 }
 
 .winner-content {
@@ -676,6 +766,7 @@ button {
 }
 
 .timer {
+  position: relative;
   min-height: 86px;
   display: flex;
   align-items: center;
@@ -685,6 +776,7 @@ button {
   color: #fff;
   background: #1f2937;
   border-radius: 8px;
+  overflow: hidden;
 }
 
 .timer strong {
@@ -695,6 +787,71 @@ button {
 
 .timer span {
   color: #d0d5dd;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.timer-progress {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  left: 12px;
+  height: 5px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+
+.timer-progress span {
+  background: #f6c453;
+}
+
+.progress-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.progress-card-head,
+.progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.progress-card-head span {
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.progress-hero {
+  display: grid;
+  gap: 3px;
+  padding: 14px 12px;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 8px;
+}
+
+.progress-hero strong {
+  font-size: 2.1rem;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.progress-hero span {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.progress-meta {
+  color: var(--muted);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -785,6 +942,17 @@ button {
   }
 }
 
+@keyframes revealCard {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (max-width: 1100px) {
   .admin-grid {
     grid-template-columns: 1fr;
@@ -821,6 +989,15 @@ button {
 
   .live-grid {
     grid-template-columns: 1fr;
+  }
+
+  .live-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .summary-count {
+    width: 100%;
   }
 
   .winner-card {

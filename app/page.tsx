@@ -458,17 +458,26 @@ export default function Home() {
   );
   const ticketGroups = useMemo(() => makeTicketGroups(tickets, BOOKLET_SIZE), [tickets]);
   const prizes = useMemo(() => parsePrizes(prizeInput), [prizeInput]);
-  const remaining = Math.max(0, drawPlan.length - cursor);
   const latestBatch = results.at(-1)?.batch ?? 0;
-  const canStart =
-    tickets.length > 0 &&
-    prizes.length > 0 &&
-    drawStatus !== "running" &&
-    (drawStatus === "paused" || results.length === 0);
+  const latestBatchResults = useMemo(
+    () => (latestBatch > 0 ? results.filter((result) => result.batch === latestBatch) : []),
+    [latestBatch, results],
+  );
+  const drawTotal = drawPlan.length > 0 ? drawPlan.length : Math.min(tickets.length, prizes.length);
+  const totalBatches = drawTotal > 0 ? Math.ceil(drawTotal / batchSize) : 0;
+  const drawProgress = drawTotal > 0 ? Math.round((results.length / drawTotal) * 100) : 0;
+  const displayedRemaining = Math.max(0, drawTotal - results.length);
+  const timerProgress =
+    drawStatus === "done"
+      ? 100
+      : drawStatus === "running"
+        ? Math.min(100, Math.max(0, ((intervalSeconds - countdown) / intervalSeconds) * 100))
+        : 0;
+  const canStart = tickets.length > 0 && prizes.length > 0 && drawStatus !== "running";
   const canDownloadPdf = results.length > 0 && !isPdfLoading;
   const hasShortTicketList = tickets.length > 0 && prizes.length > tickets.length;
   const startButtonLabel =
-    drawStatus === "paused" ? "Συνέχεια" : drawStatus === "done" ? "Ολοκληρώθηκε" : "Εκκίνηση";
+    drawStatus === "paused" ? "Συνέχεια" : results.length > 0 ? "Νέα κλήρωση" : "Εκκίνηση";
   const storageLabel =
     storageMode === "database"
       ? isRemoteSaving
@@ -497,17 +506,24 @@ export default function Home() {
     const nextCursor = cursor + nextItems.length;
 
     setResults((currentResults) => {
+      const drawnOrders = new Set(currentResults.map((result) => result.order));
+      const uniqueNextItems = nextItems.filter((item) => !drawnOrders.has(item.order));
+
+      if (uniqueNextItems.length === 0) {
+        return currentResults;
+      }
+
       const nextBatch = (currentResults.at(-1)?.batch ?? 0) + 1;
-      const nextResults = nextItems.map<PrizeResult>((item) => ({
+      const nextResults = uniqueNextItems.map<PrizeResult>((item) => ({
         ...item,
-        id: `${item.order}-${item.ticket}-${now}`,
+        id: `${item.order}-${item.ticket}-${nextBatch}-${now}`,
         batch: nextBatch,
         drawnAt: now,
       }));
 
       return [...currentResults, ...nextResults];
     });
-    setCursor(nextCursor);
+    setCursor((currentCursor) => Math.max(currentCursor, nextCursor));
 
     if (nextCursor >= drawPlan.length) {
       setDrawStatus("done");
@@ -552,7 +568,7 @@ export default function Home() {
     setResults(
       firstItems.map<PrizeResult>((item) => ({
         ...item,
-        id: `${item.order}-${item.ticket}-${now}`,
+        id: `${item.order}-${item.ticket}-1-${now}`,
         batch: 1,
         drawnAt: now,
       })),
@@ -837,14 +853,13 @@ export default function Home() {
     }
 
     const timer = window.setTimeout(() => {
-      setCountdown((current) => {
-        if (current <= 1) {
-          revealNextBatch();
-          return intervalSeconds;
-        }
+      if (countdown <= 1) {
+        revealNextBatch();
+        setCountdown(intervalSeconds);
+        return;
+      }
 
-        return current - 1;
-      });
+      setCountdown(countdown - 1);
     }, 1000);
 
     return () => window.clearTimeout(timer);
@@ -1068,7 +1083,12 @@ export default function Home() {
                   </button>
                 )}
 
-                <button className="button ghost icon-only" type="button" onClick={resetDraw} title="Νέα κλήρωση">
+                <button
+                  className="button ghost icon-only"
+                  type="button"
+                  onClick={resetDraw}
+                  title="Καθαρισμός αποτελεσμάτων"
+                >
                   <RefreshCcw size={18} />
                 </button>
               </div>
@@ -1093,7 +1113,11 @@ export default function Home() {
                   </span>
                   <span className="status-pill">
                     <Ticket size={16} />
-                    {remaining} απομένουν
+                    {displayedRemaining} απομένουν
+                  </span>
+                  <span className="status-pill">
+                    <Shuffle size={16} />
+                    Παρτίδα {latestBatch} / {totalBatches}
                   </span>
                 </div>
 
@@ -1105,29 +1129,53 @@ export default function Home() {
                     </div>
                   </div>
                 ) : (
-                  <div className="live-grid">
-                    {results.slice(-Math.max(batchSize, 10)).map((result) => (
-                      <article
-                        className={`winner-card ${result.batch === latestBatch ? "latest" : ""}`}
-                        key={result.id}
+                  <div className="live-results">
+                    <div className="live-summary">
+                      <div>
+                        <span className="summary-label">Τελευταία παρτίδα</span>
+                        <strong>
+                          Παρτίδα {latestBatch} από {totalBatches}
+                        </strong>
+                        <span className="summary-detail">
+                          {latestBatchResults.length} νέα αποτελέσματα στην οθόνη
+                        </span>
+                      </div>
+                      <div
+                        className="summary-count"
+                        aria-label={`${results.length} από ${drawTotal} δώρα κληρώθηκαν`}
                       >
-                        <PrizeVisual
-                          imageUrl={result.imageUrl}
-                          prizeName={result.prize}
-                          visualKey={result.visualKey}
-                        />
-                        <div className="winner-content">
-                          <div className="winner-topline">
-                            <span className="winner-index">#{result.order}</span>
-                            <span className="winner-ticket">
-                              <Ticket size={16} />
-                              {result.ticket}
-                            </span>
+                        <strong>
+                          {results.length}/{drawTotal}
+                        </strong>
+                        <span>Δώρα</span>
+                      </div>
+                    </div>
+
+                    <div className="overall-progress" aria-label="Συνολική πρόοδος κλήρωσης">
+                      <span style={{ width: `${drawProgress}%` }} />
+                    </div>
+
+                    <div className="live-grid">
+                      {latestBatchResults.map((result) => (
+                        <article className="winner-card latest" key={result.id}>
+                          <PrizeVisual
+                            imageUrl={result.imageUrl}
+                            prizeName={result.prize}
+                            visualKey={result.visualKey}
+                          />
+                          <div className="winner-content">
+                            <div className="winner-topline">
+                              <span className="winner-index">#{result.order}</span>
+                              <span className="winner-ticket">
+                                <Ticket size={16} />
+                                {result.ticket}
+                              </span>
+                            </div>
+                            <p className="winner-prize">{result.prize}</p>
                           </div>
-                          <p className="winner-prize">{result.prize}</p>
-                        </div>
-                      </article>
-                    ))}
+                        </article>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1158,6 +1206,32 @@ export default function Home() {
                     <span>{drawStatus === "done" ? "Ολοκληρώθηκε" : "Επόμενη παρτίδα"}</span>
                   </div>
                   <Shuffle size={28} />
+                  <div className="timer-progress" aria-hidden="true">
+                    <span style={{ width: `${timerProgress}%` }} />
+                  </div>
+                </div>
+
+                <div className="progress-card">
+                  <div className="progress-card-head">
+                    <span>Πρόοδος κλήρωσης</span>
+                  </div>
+                  <div className="progress-hero">
+                    <strong>
+                      {results.length} / {drawTotal}
+                    </strong>
+                    <span>
+                      {drawProgress}% ολοκληρώθηκε
+                    </span>
+                  </div>
+                  <div className="progress-bar">
+                    <span style={{ width: `${drawProgress}%` }} />
+                  </div>
+                  <div className="progress-meta">
+                    <span>{displayedRemaining} απομένουν</span>
+                    <span>
+                      Παρτίδα {latestBatch} / {totalBatches}
+                    </span>
+                  </div>
                 </div>
 
                 {hasShortTicketList ? (
