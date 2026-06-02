@@ -261,6 +261,63 @@ button {
   min-height: 380px;
 }
 
+.numbered-textarea {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  min-height: 380px;
+  overflow: hidden;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+}
+
+.numbered-textarea:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+}
+
+.prize-line-gutter {
+  overflow: hidden;
+  padding: 12px 0;
+  background: #f1ece4;
+  border-right: 1px solid var(--line);
+}
+
+.prize-line-gutter-inner {
+  display: grid;
+  align-content: start;
+  transition: transform 80ms linear;
+}
+
+.prize-line-number {
+  display: block;
+  height: 1.45em;
+  padding: 0 8px;
+  color: #7a4a08;
+  font-size: 0.86rem;
+  font-weight: 950;
+  line-height: 1.45;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.textarea.numbered {
+  min-height: 380px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: auto;
+}
+
+.textarea.numbered:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
 .input,
 .select {
   height: 42px;

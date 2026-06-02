@@ -354,6 +354,20 @@ function parsePrizes(value: string) {
     });
 }
 
+function makePrizeLineNumbers(value: string) {
+  const lines = value.length > 0 ? value.split("\n") : [""];
+  let prizeNumber = 0;
+
+  return lines.map((line) => {
+    if (!line.trim()) {
+      return null;
+    }
+
+    prizeNumber += 1;
+    return prizeNumber;
+  });
+}
+
 function randomInt(maxExclusive: number) {
   const randomValues = new Uint32Array(1);
   const limit = Math.floor(0xffffffff / maxExclusive) * maxExclusive;
@@ -488,6 +502,7 @@ function LotteryApp() {
   const [isRemoteSaving, setIsRemoteSaving] = useState(false);
   const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
   const [hasGoogleProvider, setHasGoogleProvider] = useState<boolean | null>(null);
+  const [prizeScrollTop, setPrizeScrollTop] = useState(0);
 
   const bookletData = useMemo(() => parseBooklets(bookletInput), [bookletInput]);
   const manualTickets = useMemo(() => parseTickets(ticketInput), [ticketInput]);
@@ -497,6 +512,7 @@ function LotteryApp() {
   );
   const ticketGroups = useMemo(() => makeTicketGroups(tickets, BOOKLET_SIZE), [tickets]);
   const prizes = useMemo(() => parsePrizes(prizeInput), [prizeInput]);
+  const prizeLineNumbers = useMemo(() => makePrizeLineNumbers(prizeInput), [prizeInput]);
   const latestBatch = results.at(-1)?.batch ?? 0;
   const latestBatchResults = useMemo(
     () => (latestBatch > 0 ? results.filter((result) => result.batch === latestBatch) : []),
@@ -1166,14 +1182,33 @@ function LotteryApp() {
                     Δώρα
                     <span className="count-chip">{prizes.length} στη λίστα</span>
                   </span>
-                  <textarea
-                    className="textarea tall"
-                    value={prizeInput}
-                    placeholder={
-                      "Ποδήλατο\nΔωροεπιταγή βιβλιοπωλείου\nΕπιτραπέζιο παιχνίδι | https://example.com/image.jpg"
-                    }
-                    onChange={(event) => setPrizeInput(event.target.value)}
-                  />
+                  <div className="numbered-textarea">
+                    <div className="prize-line-gutter" aria-hidden="true">
+                      <div
+                        className="prize-line-gutter-inner"
+                        style={{ transform: `translateY(-${prizeScrollTop}px)` }}
+                      >
+                        {prizeLineNumbers.map((lineNumber, index) => (
+                          <span
+                            className="prize-line-number"
+                            key={`${index}-${lineNumber ?? "blank"}`}
+                          >
+                            {lineNumber ? `#${lineNumber}` : ""}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <textarea
+                      className="textarea tall numbered"
+                      value={prizeInput}
+                      wrap="off"
+                      placeholder={
+                        "Ποδήλατο\nΔωροεπιταγή βιβλιοπωλείου\nΕπιτραπέζιο παιχνίδι | https://example.com/image.jpg"
+                      }
+                      onChange={(event) => setPrizeInput(event.target.value)}
+                      onScroll={(event) => setPrizeScrollTop(event.currentTarget.scrollTop)}
+                    />
+                  </div>
                 </label>
 
                 <section className="prize-numbering" aria-live="polite">
