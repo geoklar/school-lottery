@@ -447,49 +447,6 @@ function PrizeVisual({
   );
 }
 
-function AuthScreen({
-  hasGoogleProvider,
-  isLoading,
-}: {
-  hasGoogleProvider: boolean | null;
-  isLoading: boolean;
-}) {
-  return (
-    <main className="shell auth-shell">
-      <section className="auth-panel">
-        <div className="school-mark" aria-hidden="true">
-          <School size={26} />
-        </div>
-        <div>
-          <h1 className="auth-title">Κλήρωση δώρων</h1>
-          <p className="auth-subtitle">Σύνδεση με Google για προβολή αποτελεσμάτων.</p>
-        </div>
-
-        {isLoading ? (
-          <div className="auth-status">Έλεγχος σύνδεσης...</div>
-        ) : (
-          <button
-            className="button primary auth-button"
-            disabled={hasGoogleProvider === false}
-            type="button"
-            onClick={() => signIn("google")}
-          >
-            <LogIn size={18} />
-            Σύνδεση με Google
-          </button>
-        )}
-
-        {hasGoogleProvider === false ? (
-          <div className="warning auth-warning">
-            <AlertTriangle size={18} />
-            <span>Δεν έχει ρυθμιστεί ακόμα Google SSO στο Vercel.</span>
-          </div>
-        ) : null}
-      </section>
-    </main>
-  );
-}
-
 export default function Home() {
   return (
     <SessionProvider>
@@ -555,7 +512,7 @@ function LotteryApp() {
         ? Math.min(100, Math.max(0, ((intervalSeconds - countdown) / intervalSeconds) * 100))
         : 0;
   const canStart = isAdmin && tickets.length > 0 && prizes.length > 0 && drawStatus !== "running";
-  const canDownloadPdf = isAuthenticated && isDrawComplete && !isPdfLoading && !isRemoteSaving;
+  const canDownloadPdf = isDrawComplete && !isPdfLoading && !isRemoteSaving;
   const hasShortTicketList = displayTicketCount > 0 && displayPrizeCount > displayTicketCount;
   const startButtonLabel =
     drawStatus === "paused" ? "Συνέχεια" : results.length > 0 ? "Νέα κλήρωση" : "Εκκίνηση";
@@ -576,7 +533,7 @@ function LotteryApp() {
   }, []);
 
   useEffect(() => {
-    if (sessionStatus !== "unauthenticated") {
+    if (sessionStatus === "authenticated") {
       return;
     }
 
@@ -844,7 +801,7 @@ function LotteryApp() {
   }, [applySavedState]);
 
   useEffect(() => {
-    if (sessionStatus !== "authenticated") {
+    if (sessionStatus === "loading") {
       return;
     }
 
@@ -864,6 +821,7 @@ function LotteryApp() {
           databaseAvailable?: boolean;
           permissions?: {
             isAdmin?: boolean;
+            isAuthenticated?: boolean;
           };
           publicStats?: PublicStats;
           state?: Partial<SavedState>;
@@ -1004,14 +962,6 @@ function LotteryApp() {
     }
   }, [drawStatus, intervalSeconds, results.length]);
 
-  if (sessionStatus === "loading") {
-    return <AuthScreen hasGoogleProvider={hasGoogleProvider} isLoading />;
-  }
-
-  if (!isAuthenticated) {
-    return <AuthScreen hasGoogleProvider={hasGoogleProvider} isLoading={false} />;
-  }
-
   return (
     <main className="shell">
       <div className="app-frame">
@@ -1031,13 +981,37 @@ function LotteryApp() {
               <Database size={16} />
               {storageLabel}
             </span>
-            <span className={`user-pill ${isAdmin ? "admin" : "viewer"}`}>
-              {isAdmin ? <ShieldCheck size={16} /> : <User size={16} />}
-              {sessionUser?.email}
-            </span>
-            <button className="button ghost icon-only" type="button" onClick={() => signOut()} title="Αποσύνδεση">
-              <LogOut size={18} />
-            </button>
+            {isAuthenticated ? (
+              <>
+                <span className={`user-pill ${isAdmin ? "admin" : "viewer"}`}>
+                  {isAdmin ? <ShieldCheck size={16} /> : <User size={16} />}
+                  {sessionUser?.email}
+                </span>
+                <button
+                  className="button ghost icon-only"
+                  type="button"
+                  onClick={() => signOut()}
+                  title="Αποσύνδεση"
+                >
+                  <LogOut size={18} />
+                </button>
+              </>
+            ) : (
+              <button
+                className="button ghost"
+                disabled={sessionStatus === "loading" || hasGoogleProvider === false}
+                type="button"
+                onClick={() => signIn("google")}
+                title={hasGoogleProvider === false ? "Δεν έχει ρυθμιστεί Google SSO" : "Σύνδεση"}
+              >
+                <LogIn size={17} />
+                {sessionStatus === "loading"
+                  ? "Έλεγχος..."
+                  : hasGoogleProvider === false
+                    ? "SSO μη διαθέσιμο"
+                    : "Σύνδεση"}
+              </button>
+            )}
 
             <div className="section-tabs" aria-label="Ενότητες εφαρμογής">
               <button

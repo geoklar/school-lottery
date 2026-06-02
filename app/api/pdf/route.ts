@@ -1,6 +1,3 @@
-import { getServerSession } from "next-auth";
-
-import { authOptions, type AppSession } from "../../../lib/auth";
 import { ensureLotterySchema, getSql, hasDatabaseUrl, SETTINGS_ID } from "../../../lib/lottery-db";
 import { isLotteryComplete } from "../../../lib/lottery-counts";
 
@@ -175,12 +172,6 @@ async function resolvePdfPayload(request: Request): Promise<PdfPayload> {
 }
 
 export async function POST(request: Request) {
-  const session = (await getServerSession(authOptions)) as AppSession | null;
-
-  if (!session) {
-    return Response.json({ error: "Authentication required" }, { status: 401 });
-  }
-
   try {
     const payload = await resolvePdfPayload(request);
     const schoolName = cleanText(payload.schoolName, "19ο Δημοτικό Σχολείο Θεσσαλονίκης");

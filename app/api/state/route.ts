@@ -128,17 +128,13 @@ function sanitizeViewerState(state: LotteryState): LotteryState {
 
 export async function GET() {
   const session = (await getServerSession(authOptions)) as AppSession | null;
-
-  if (!session) {
-    return Response.json({ error: "Authentication required" }, { status: 401 });
-  }
-
+  const isAuthenticated = Boolean(session);
   const isAdmin = isAdminSession(session);
 
   if (!hasDatabaseUrl()) {
     return Response.json({
       databaseAvailable: false,
-      permissions: { isAdmin },
+      permissions: { isAdmin, isAuthenticated },
       publicStats: getLotteryCounts(defaultState),
       state: isAdmin ? defaultState : sanitizeViewerState(defaultState),
     });
@@ -182,7 +178,7 @@ export async function GET() {
 
     return Response.json({
       databaseAvailable: true,
-      permissions: { isAdmin },
+      permissions: { isAdmin, isAuthenticated },
       publicStats: getLotteryCounts(state),
       state: isAdmin ? state : sanitizeViewerState(state),
     });
@@ -192,7 +188,7 @@ export async function GET() {
       {
         databaseAvailable: false,
         error: "Database read failed",
-        permissions: { isAdmin },
+        permissions: { isAdmin, isAuthenticated },
         publicStats: getLotteryCounts(defaultState),
         state: isAdmin ? defaultState : sanitizeViewerState(defaultState),
       },

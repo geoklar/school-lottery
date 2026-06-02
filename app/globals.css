@@ -49,54 +49,6 @@ button {
   padding: 24px;
 }
 
-.auth-shell {
-  display: grid;
-  place-items: center;
-}
-
-.auth-panel {
-  width: min(440px, 100%);
-  display: grid;
-  justify-items: center;
-  gap: 16px;
-  padding: 28px;
-  text-align: center;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-}
-
-.auth-title {
-  margin: 0;
-  font-size: 1.45rem;
-  letter-spacing: 0;
-}
-
-.auth-subtitle {
-  margin: 8px 0 0;
-  color: var(--muted);
-  font-size: 0.94rem;
-  line-height: 1.45;
-}
-
-.auth-button {
-  width: 100%;
-}
-
-.auth-status {
-  min-height: 42px;
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  font-weight: 850;
-}
-
-.auth-warning {
-  width: 100%;
-  text-align: left;
-}
-
 .app-frame {
   display: grid;
   gap: 18px;
