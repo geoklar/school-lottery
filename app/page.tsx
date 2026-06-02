@@ -539,7 +539,9 @@ function LotteryApp() {
       : drawStatus === "running"
         ? Math.min(100, Math.max(0, ((intervalSeconds - countdown) / intervalSeconds) * 100))
         : 0;
-  const canStart = isAdmin && tickets.length > 0 && prizes.length > 0 && drawStatus !== "running";
+  const canManageDraw = isAuthenticated && isAdmin;
+  const canStart =
+    canManageDraw && tickets.length > 0 && prizes.length > 0 && drawStatus !== "running";
   const canDownloadPdf = isDrawComplete && !isPdfLoading && !isRemoteSaving;
   const hasShortTicketList = displayTicketCount > 0 && displayPrizeCount > displayTicketCount;
   const startButtonLabel =
@@ -549,6 +551,20 @@ function LotteryApp() {
     setToast(message);
     window.setTimeout(() => setToast(""), 3600);
   }, []);
+
+  const ensureAdminAction = useCallback(() => {
+    if (!isAuthenticated) {
+      showToast("Συνδέσου για να αλλάξεις την κλήρωση.");
+      return false;
+    }
+
+    if (!isAdmin) {
+      showToast("Μόνο ο διαχειριστής μπορεί να αλλάξει την κλήρωση.");
+      return false;
+    }
+
+    return true;
+  }, [isAdmin, isAuthenticated, showToast]);
 
   const syncPrizeLineScroll = useCallback((scrollTop: number) => {
     if (prizeLineGutterRef.current) {
@@ -581,10 +597,10 @@ function LotteryApp() {
   }, [sessionStatus]);
 
   useEffect(() => {
-    if (!isAdmin && activeSection === "admin") {
+    if (!canManageDraw && activeSection === "admin") {
       setActiveSection("draw");
     }
-  }, [activeSection, isAdmin]);
+  }, [activeSection, canManageDraw]);
 
   const revealNextBatch = useCallback(() => {
     const nextItems = drawPlan.slice(cursor, cursor + batchSize);
@@ -623,6 +639,10 @@ function LotteryApp() {
   }, [batchSize, cursor, drawPlan]);
 
   const startDraw = useCallback(() => {
+    if (!ensureAdminAction()) {
+      return;
+    }
+
     if (drawStatus === "paused") {
       setCountdown(intervalSeconds);
       setDrawStatus("running");
@@ -670,13 +690,30 @@ function LotteryApp() {
     if (firstItems.length >= nextPlan.length) {
       setDrawStatus("done");
     }
-  }, [batchSize, drawStatus, intervalSeconds, prizes, results.length, showToast, tickets]);
+  }, [
+    batchSize,
+    drawStatus,
+    ensureAdminAction,
+    intervalSeconds,
+    prizes,
+    results.length,
+    showToast,
+    tickets,
+  ]);
 
   const pauseDraw = useCallback(() => {
+    if (!ensureAdminAction()) {
+      return;
+    }
+
     setDrawStatus("paused");
-  }, []);
+  }, [ensureAdminAction]);
 
   const resetDraw = useCallback(() => {
+    if (!ensureAdminAction()) {
+      return;
+    }
+
     const confirmed =
       results.length === 0 ||
       window.confirm("Να καθαριστούν τα τρέχοντα αποτελέσματα της κλήρωσης;");
@@ -690,9 +727,13 @@ function LotteryApp() {
     setCursor(0);
     setCountdown(intervalSeconds);
     setDrawStatus("ready");
-  }, [intervalSeconds, results.length]);
+  }, [ensureAdminAction, intervalSeconds, results.length]);
 
   const loadDemo = useCallback(() => {
+    if (!ensureAdminAction()) {
+      return;
+    }
+
     setBookletInput(
       Array.from(
         { length: 10 },
@@ -729,9 +770,13 @@ function LotteryApp() {
     setCursor(0);
     setDrawStatus("ready");
     showToast("Προστέθηκαν δοκιμαστικοί λαχνοί και δώρα.");
-  }, [showToast]);
+  }, [ensureAdminAction, showToast]);
 
   const clearInputs = useCallback(() => {
+    if (!ensureAdminAction()) {
+      return;
+    }
+
     const confirmed =
       !bookletInput && !ticketInput && !prizeInput
         ? true
@@ -748,7 +793,7 @@ function LotteryApp() {
     setDrawPlan([]);
     setCursor(0);
     setDrawStatus("ready");
-  }, [bookletInput, prizeInput, ticketInput]);
+  }, [bookletInput, ensureAdminAction, prizeInput, ticketInput]);
 
   const downloadPdf = useCallback(async () => {
     if (!isDrawComplete) {
@@ -1043,7 +1088,7 @@ function LotteryApp() {
                 <Gift size={17} />
                 Κλήρωση
               </button>
-              {isAdmin ? (
+              {canManageDraw ? (
                 <button
                   className={`tab-button ${activeSection === "admin" ? "active" : ""}`}
                   type="button"
@@ -1250,7 +1295,7 @@ function LotteryApp() {
                 <p className="panel-subtitle">{schoolName}</p>
               </div>
               <div className="toolbar">
-                {isAdmin ? (
+                {canManageDraw ? (
                   <>
                     {drawStatus === "running" ? (
                       <button className="button" type="button" onClick={pauseDraw}>
