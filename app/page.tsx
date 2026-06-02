@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Bike,
   BookOpen,
-  Database,
   Download,
   FileText,
   Gift,
@@ -415,6 +414,15 @@ function formatTime(value: string) {
   }
 }
 
+const ticketCollator = new Intl.Collator("el-GR", {
+  numeric: true,
+  sensitivity: "base",
+});
+
+function compareResultsByTicket(left: PrizeResult, right: PrizeResult) {
+  return ticketCollator.compare(left.ticket, right.ticket) || left.order - right.order;
+}
+
 function PrizeVisual({
   imageUrl,
   prizeName,
@@ -494,6 +502,10 @@ function LotteryApp() {
     () => (latestBatch > 0 ? results.filter((result) => result.batch === latestBatch) : []),
     [latestBatch, results],
   );
+  const sortedResultsByTicket = useMemo(
+    () => [...results].sort(compareResultsByTicket),
+    [results],
+  );
   const displayTicketCount = isAdmin ? tickets.length : (publicStats?.ticketCount ?? tickets.length);
   const displayPrizeCount = isAdmin ? prizes.length : (publicStats?.prizeCount ?? prizes.length);
   const savedDrawTotal = isAdmin
@@ -516,16 +528,6 @@ function LotteryApp() {
   const hasShortTicketList = displayTicketCount > 0 && displayPrizeCount > displayTicketCount;
   const startButtonLabel =
     drawStatus === "paused" ? "Συνέχεια" : results.length > 0 ? "Νέα κλήρωση" : "Εκκίνηση";
-  const storageLabel =
-    storageMode === "database"
-      ? isRemoteSaving
-        ? "Αποθήκευση..."
-        : "Postgres"
-      : storageMode === "error"
-        ? "Σφάλμα DB"
-        : storageMode === "loading"
-          ? "Φόρτωση"
-          : "Τοπικά";
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -977,10 +979,6 @@ function LotteryApp() {
           </div>
 
           <div className="topbar-actions">
-            <span className={`storage-pill ${storageMode}`}>
-              <Database size={16} />
-              {storageLabel}
-            </span>
             {isAuthenticated ? (
               <>
                 <span className={`user-pill ${isAdmin ? "admin" : "viewer"}`}>
@@ -988,12 +986,13 @@ function LotteryApp() {
                   {sessionUser?.email}
                 </span>
                 <button
-                  className="button ghost icon-only"
+                  className="button ghost"
                   type="button"
                   onClick={() => signOut()}
                   title="Αποσύνδεση"
                 >
                   <LogOut size={18} />
+                  Αποσύνδεση
                 </button>
               </>
             ) : (
@@ -1176,6 +1175,26 @@ function LotteryApp() {
                     onChange={(event) => setPrizeInput(event.target.value)}
                   />
                 </label>
+
+                <section className="prize-numbering" aria-live="polite">
+                  <div className="ticket-groups-head">
+                    <span>Αρίθμηση δώρων</span>
+                    <span className="count-chip">{prizes.length} δώρα</span>
+                  </div>
+
+                  {prizes.length === 0 ? (
+                    <div className="ticket-groups-empty">Δεν έχουν δηλωθεί δώρα.</div>
+                  ) : (
+                    <ol className="prize-number-list">
+                      {prizes.map((prize, index) => (
+                        <li key={`${prize.name}-${index}`}>
+                          <span className="prize-number">Δώρο #{index + 1}</span>
+                          <span>{prize.name}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </section>
               </div>
             </div>
           </div>
@@ -1298,7 +1317,7 @@ function LotteryApp() {
                           />
                           <div className="winner-content">
                             <div className="winner-topline">
-                              <span className="winner-index">#{result.order}</span>
+                              <span className="winner-index">Δώρο #{result.order}</span>
                               <span className="winner-ticket">
                                 <Ticket size={16} />
                                 {result.ticket}
@@ -1322,14 +1341,6 @@ function LotteryApp() {
                   <div className="metric">
                     <span className="metric-value">{displayPrizeCount}</span>
                     <span className="metric-label">Δώρα</span>
-                  </div>
-                  <div className="metric">
-                    <span className="metric-value">{batchSize}</span>
-                    <span className="metric-label">Ανά γύρο</span>
-                  </div>
-                  <div className="metric">
-                    <span className="metric-value">{intervalSeconds}s</span>
-                    <span className="metric-label">Ρυθμός</span>
                   </div>
                 </div>
 
@@ -1406,7 +1417,7 @@ function LotteryApp() {
               <table className="results-table">
                 <thead>
                   <tr>
-                    <th>Α/Α</th>
+                    <th>Δώρο #</th>
                     <th>Εικόνα</th>
                     <th>Λαχνός</th>
                     <th>Δώρο</th>
@@ -1420,7 +1431,7 @@ function LotteryApp() {
                       <td colSpan={6}>Δεν υπάρχουν αποτελέσματα.</td>
                     </tr>
                   ) : (
-                    results.map((result) => (
+                    sortedResultsByTicket.map((result) => (
                       <tr key={result.id}>
                         <td>{result.order}</td>
                         <td>

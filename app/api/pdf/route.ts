@@ -111,6 +111,18 @@ function normalizeResults(results: unknown) {
     .slice(0, 1000);
 }
 
+const ticketCollator = new Intl.Collator("el-GR", {
+  numeric: true,
+  sensitivity: "base",
+});
+
+function sortResultsByTicket(results: PrizeResult[]) {
+  return [...results].sort(
+    (left, right) =>
+      ticketCollator.compare(left.ticket, right.ticket) || left.order - right.order,
+  );
+}
+
 function toIsoDate(value: Date | string) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
@@ -183,6 +195,8 @@ export async function POST(request: Request) {
       return Response.json({ error: "No results supplied" }, { status: 400 });
     }
 
+    const sortedResults = sortResultsByTicket(results);
+
     const [pdfMakeModule, pdfFontsModule] = await Promise.all([
       import("pdfmake/build/pdfmake"),
       import("pdfmake/build/vfs_fonts"),
@@ -203,13 +217,13 @@ export async function POST(request: Request) {
 
     const tableBody = [
       [
-        { text: "Α/Α", style: "tableHeader" },
+        { text: "Δώρο #", style: "tableHeader" },
         { text: "Λαχνός", style: "tableHeader" },
         { text: "Δώρο", style: "tableHeader" },
         { text: "Παρτίδα", style: "tableHeader" },
         { text: "Ώρα", style: "tableHeader" },
       ],
-      ...results.map((result) => [
+      ...sortedResults.map((result) => [
         String(result.order),
         { text: result.ticket, style: "ticket" },
         result.prize,

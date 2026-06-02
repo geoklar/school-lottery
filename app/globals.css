@@ -98,33 +98,6 @@ button {
   gap: 10px;
 }
 
-.storage-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 38px;
-  padding: 0 11px;
-  color: var(--muted);
-  background: var(--panel-strong);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 0.82rem;
-  font-weight: 850;
-  white-space: nowrap;
-}
-
-.storage-pill.database {
-  color: var(--accent-strong);
-  background: var(--accent-soft);
-  border-color: #a8dcd6;
-}
-
-.storage-pill.error {
-  color: var(--danger);
-  background: #fff0ed;
-  border-color: #f5b5ad;
-}
-
 .user-pill,
 .viewer-badge {
   display: inline-flex;
@@ -373,6 +346,53 @@ button {
   white-space: nowrap;
 }
 
+.prize-numbering {
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+  background: #f1ece4;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.prize-number-list {
+  display: grid;
+  gap: 7px;
+  max-height: 280px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prize-number-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  padding: 7px 9px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.prize-number {
+  color: #7a4a08;
+  font-size: 0.76rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.prize-number-list li span:last-child {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: break-word;
+}
+
 .admin-grid {
   display: grid;
   grid-template-columns: minmax(250px, 0.8fr) minmax(300px, 1fr) minmax(300px, 1fr);
@@ -576,7 +596,7 @@ button {
   font-weight: 950;
 }
 
-.summary-count span {
+.live-summary .summary-count span {
   margin-top: 4px;
   color: #fff;
   font-size: 0.72rem;
