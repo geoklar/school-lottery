@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getProviders, signIn, signOut, SessionProvider, useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type DrawStatus = "ready" | "running" | "paused" | "done";
 type ActiveSection = "draw" | "admin";
@@ -502,7 +502,7 @@ function LotteryApp() {
   const [isRemoteSaving, setIsRemoteSaving] = useState(false);
   const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
   const [hasGoogleProvider, setHasGoogleProvider] = useState<boolean | null>(null);
-  const [prizeScrollTop, setPrizeScrollTop] = useState(0);
+  const prizeLineGutterRef = useRef<HTMLDivElement | null>(null);
 
   const bookletData = useMemo(() => parseBooklets(bookletInput), [bookletInput]);
   const manualTickets = useMemo(() => parseTickets(ticketInput), [ticketInput]);
@@ -548,6 +548,12 @@ function LotteryApp() {
   const showToast = useCallback((message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 3600);
+  }, []);
+
+  const syncPrizeLineScroll = useCallback((scrollTop: number) => {
+    if (prizeLineGutterRef.current) {
+      prizeLineGutterRef.current.style.transform = `translateY(-${scrollTop}px)`;
+    }
   }, []);
 
   useEffect(() => {
@@ -1186,7 +1192,7 @@ function LotteryApp() {
                     <div className="prize-line-gutter" aria-hidden="true">
                       <div
                         className="prize-line-gutter-inner"
-                        style={{ transform: `translateY(-${prizeScrollTop}px)` }}
+                        ref={prizeLineGutterRef}
                       >
                         {prizeLineNumbers.map((lineNumber, index) => (
                           <span
@@ -1206,7 +1212,7 @@ function LotteryApp() {
                         "Ποδήλατο\nΔωροεπιταγή βιβλιοπωλείου\nΕπιτραπέζιο παιχνίδι | https://example.com/image.jpg"
                       }
                       onChange={(event) => setPrizeInput(event.target.value)}
-                      onScroll={(event) => setPrizeScrollTop(event.currentTarget.scrollTop)}
+                      onScroll={(event) => syncPrizeLineScroll(event.currentTarget.scrollTop)}
                     />
                   </div>
                 </label>

@@ -262,6 +262,9 @@ button {
 }
 
 .numbered-textarea {
+  --prize-editor-font-size: 1rem;
+  --prize-editor-line-height: 1.45rem;
+
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);
   min-height: 380px;
@@ -290,17 +293,18 @@ button {
 .prize-line-gutter-inner {
   display: grid;
   align-content: start;
-  transition: transform 80ms linear;
+  transform: translateY(0);
+  will-change: transform;
 }
 
 .prize-line-number {
   display: block;
-  height: 1.45em;
+  height: var(--prize-editor-line-height);
   padding: 0 8px;
   color: #7a4a08;
   font-size: 0.86rem;
   font-weight: 950;
-  line-height: 1.45;
+  line-height: var(--prize-editor-line-height);
   text-align: right;
   white-space: nowrap;
 }
@@ -310,6 +314,8 @@ button {
   border: 0;
   border-radius: 0;
   box-shadow: none;
+  font-size: var(--prize-editor-font-size);
+  line-height: var(--prize-editor-line-height);
   overflow: auto;
 }
 
