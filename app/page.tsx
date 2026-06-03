@@ -25,9 +25,11 @@ import {
   Utensils,
   LogIn,
   LogOut,
+  QrCode,
   User,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import Image from "next/image";
 import { getProviders, signIn, signOut, SessionProvider, useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -91,6 +93,7 @@ type SessionUserWithRole = {
 
 const STORAGE_KEY = "school-lottery-state-v1";
 const BOOKLET_SIZE = 50;
+const PUBLIC_SITE_URL = "https://school-lottery.vercel.app/";
 const prizeVisuals: Record<
   PrizeVisualKey,
   {
@@ -1463,6 +1466,27 @@ function LotteryApp() {
                     </span>
                   </div>
                 </div>
+
+                <a
+                  className="qr-card"
+                  href={PUBLIC_SITE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <div className="qr-card-head">
+                    <QrCode size={18} />
+                    <span>QR σελίδας</span>
+                  </div>
+                  <Image
+                    className="qr-image"
+                    src="/school-lottery-qr.svg"
+                    alt="QR code για τη σελίδα της κλήρωσης"
+                    width={224}
+                    height={224}
+                    unoptimized
+                  />
+                  <span className="qr-url">school-lottery.vercel.app</span>
+                </a>
 
                 {hasShortTicketList ? (
                   <div className="warning">
