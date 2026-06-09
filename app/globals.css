@@ -1025,6 +1025,52 @@ button {
   overflow: hidden;
 }
 
+.ticket-search {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 220px) 34px;
+  align-items: center;
+  min-height: 42px;
+  padding-left: 11px;
+  color: var(--muted);
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.ticket-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+}
+
+.ticket-search input {
+  min-width: 0;
+  height: 40px;
+  padding: 0 9px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.ticket-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.ticket-search button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.ticket-search button:hover {
+  color: var(--ink);
+}
+
 .table-wrap {
   overflow: auto;
   max-height: 460px;
@@ -1173,5 +1219,15 @@ button {
 
   .panel-head {
     padding: 14px;
+  }
+
+  .results-panel .panel-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ticket-search {
+    grid-template-columns: auto minmax(0, 1fr) 34px;
+    width: 100%;
   }
 }

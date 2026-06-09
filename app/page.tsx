@@ -5,7 +5,6 @@ import {
   Bike,
   BookOpen,
   Download,
-  FileText,
   Gift,
   Gamepad2,
   Music,
@@ -14,6 +13,7 @@ import {
   Play,
   RefreshCcw,
   School,
+  Search,
   Settings,
   ShieldCheck,
   Shirt,
@@ -27,6 +27,7 @@ import {
   LogOut,
   QrCode,
   User,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Image from "next/image";
@@ -505,6 +506,7 @@ function LotteryApp() {
   const [isRemoteSaving, setIsRemoteSaving] = useState(false);
   const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
   const [hasGoogleProvider, setHasGoogleProvider] = useState<boolean | null>(null);
+  const [ticketSearch, setTicketSearch] = useState("");
   const prizeLineGutterRef = useRef<HTMLDivElement | null>(null);
 
   const bookletData = useMemo(() => parseBooklets(bookletInput), [bookletInput]);
@@ -525,6 +527,17 @@ function LotteryApp() {
     () => [...results].sort(compareResultsByTicket),
     [results],
   );
+  const filteredResultsByTicket = useMemo(() => {
+    const query = normalizeSearchText(ticketSearch.trim());
+
+    if (!query) {
+      return sortedResultsByTicket;
+    }
+
+    return sortedResultsByTicket.filter((result) =>
+      normalizeSearchText(result.ticket).includes(query),
+    );
+  }, [sortedResultsByTicket, ticketSearch]);
   const displayTicketCount = isAdmin ? tickets.length : (publicStats?.ticketCount ?? tickets.length);
   const displayPrizeCount = isAdmin ? prizes.length : (publicStats?.prizeCount ?? prizes.length);
   const savedDrawTotal = isAdmin
@@ -1517,9 +1530,31 @@ function LotteryApp() {
             <div className="panel-head">
               <div>
                 <h2 className="panel-title">Τελική λίστα</h2>
-                <p className="panel-subtitle">{results.length} εγγραφές</p>
+                <p className="panel-subtitle">
+                  {ticketSearch.trim()
+                    ? `${filteredResultsByTicket.length} από ${results.length} εγγραφές`
+                    : `${results.length} εγγραφές`}
+                </p>
               </div>
-              <FileText size={24} aria-hidden="true" />
+              <div className="ticket-search">
+                <Search size={18} aria-hidden="true" />
+                <input
+                  aria-label="Αναζήτηση λαχνού"
+                  placeholder="Αναζήτηση λαχνού"
+                  type="search"
+                  value={ticketSearch}
+                  onChange={(event) => setTicketSearch(event.target.value)}
+                />
+                {ticketSearch ? (
+                  <button
+                    aria-label="Καθαρισμός αναζήτησης"
+                    type="button"
+                    onClick={() => setTicketSearch("")}
+                  >
+                    <X size={17} />
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             <div className="table-wrap">
@@ -1539,8 +1574,12 @@ function LotteryApp() {
                     <tr>
                       <td colSpan={6}>Δεν υπάρχουν αποτελέσματα.</td>
                     </tr>
+                  ) : filteredResultsByTicket.length === 0 ? (
+                    <tr>
+                      <td colSpan={6}>Δεν βρέθηκε αποτέλεσμα για αυτόν τον λαχνό.</td>
+                    </tr>
                   ) : (
-                    sortedResultsByTicket.map((result) => (
+                    filteredResultsByTicket.map((result) => (
                       <tr key={result.id}>
                         <td>{result.order}</td>
                         <td>
