@@ -261,36 +261,37 @@ function parseTickets(value: string) {
 function parseBooklets(value: string) {
   const seen = new Set<string>();
   const tickets: string[] = [];
-  let bookletCount = 0;
-
-  const addTicket = (ticket: string) => {
-    if (!ticket || seen.has(ticket)) {
-      return;
-    }
-
-    seen.add(ticket);
-    tickets.push(ticket);
-  };
+  const groups: Array<{ id: string; range: string; tickets: string[] }> = [];
 
   for (const token of splitTicketTokens(value)) {
     const rangeMatch = token.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+    const isSingleTicket = /^\d+$/.test(token);
 
-    if (rangeMatch) {
-      const expanded = expandTicketToken(token);
-      expanded.forEach(addTicket);
-      bookletCount += 1;
+    if (!rangeMatch && !isSingleTicket) {
       continue;
     }
 
-    if (!/^\d+$/.test(token)) {
-      continue;
+    const groupTickets: string[] = [];
+    const expanded = rangeMatch ? expandTicketToken(token) : [token];
+
+    for (const ticket of expanded) {
+      if (!ticket || seen.has(ticket)) {
+        continue;
+      }
+
+      seen.add(ticket);
+      tickets.push(ticket);
+      groupTickets.push(ticket);
     }
 
-    addTicket(token);
-    bookletCount += 1;
+    groups.push({
+      id: `${groups.length}-${token}`,
+      range: rangeMatch ? `${rangeMatch[1]}-${rangeMatch[2]}` : token,
+      tickets: groupTickets,
+    });
   }
 
-  return { bookletCount, tickets };
+  return { bookletCount: groups.length, groups, tickets };
 }
 
 function mergeTickets(...ticketGroups: string[][]) {
@@ -336,18 +337,37 @@ function formatTicketGroupRange(groupTickets: string[]) {
   return `${firstTicket}-${lastTicket}`;
 }
 
-function makeTicketGroups(tickets: string[], groupSize: number) {
-  const groups: string[][] = [];
+function makeTicketGroups(
+  bookletGroups: Array<{ id: string; range: string; tickets: string[] }>,
+  manualTickets: string[],
+  excludedTickets: string[],
+) {
+  const excludedKeys = new Set(excludedTickets.map(ticketKey));
+  const bookletTicketKeys = new Set(
+    bookletGroups.flatMap((group) => group.tickets).map(ticketKey),
+  );
+  const groups = bookletGroups.map((group) => ({
+    id: group.id,
+    count: group.tickets.filter((ticket) => !excludedKeys.has(ticketKey(ticket))).length,
+    range: group.range,
+  }));
+  const availableManualTickets = manualTickets.filter((ticket) => {
+    const key = ticketKey(ticket);
+    return !bookletTicketKeys.has(key) && !excludedKeys.has(key);
+  });
 
-  for (let index = 0; index < tickets.length; index += groupSize) {
-    groups.push(tickets.slice(index, index + groupSize));
+  for (let index = 0; index < availableManualTickets.length; index += BOOKLET_SIZE) {
+    const groupTickets = availableManualTickets.slice(index, index + BOOKLET_SIZE);
+    groups.push({
+      id: `manual-${index}-${groupTickets[0] ?? "empty"}`,
+      count: groupTickets.length,
+      range: formatTicketGroupRange(groupTickets),
+    });
   }
 
-  return groups.map((groupTickets, index) => ({
-    id: `${index}-${groupTickets[0] ?? "empty"}`,
+  return groups.map((group, index) => ({
+    ...group,
     order: index + 1,
-    count: groupTickets.length,
-    range: formatTicketGroupRange(groupTickets),
   }));
 }
 
@@ -536,7 +556,10 @@ function LotteryApp() {
     [excludedTickets, includedTickets],
   );
   const excludedTicketCount = includedTickets.length - tickets.length;
-  const ticketGroups = useMemo(() => makeTicketGroups(tickets, BOOKLET_SIZE), [tickets]);
+  const ticketGroups = useMemo(
+    () => makeTicketGroups(bookletData.groups, manualTickets, excludedTickets),
+    [bookletData.groups, excludedTickets, manualTickets],
+  );
   const prizes = useMemo(() => parsePrizes(prizeInput), [prizeInput]);
   const prizeLineNumbers = useMemo(() => makePrizeLineNumbers(prizeInput), [prizeInput]);
   const latestBatch = results.at(-1)?.batch ?? 0;
