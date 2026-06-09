@@ -146,7 +146,8 @@ async function resolvePdfPayload(request: Request): Promise<PdfPayload> {
   await ensureLotterySchema();
   const sql = getSql();
   const [settings] = await sql`
-    select school_name, event_title, booklet_input, ticket_input, prize_input
+    select school_name, event_title, booklet_input, ticket_input, excluded_ticket_input,
+      prize_input
     from lottery_settings
     where id = ${SETTINGS_ID}
     limit 1
@@ -158,6 +159,7 @@ async function resolvePdfPayload(request: Request): Promise<PdfPayload> {
   `;
   const state = {
     bookletInput: settings?.booklet_input ?? "",
+    excludedTicketInput: settings?.excluded_ticket_input ?? "",
     prizeInput: settings?.prize_input ?? "",
     results,
     ticketInput: settings?.ticket_input ?? "",

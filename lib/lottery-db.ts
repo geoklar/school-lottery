@@ -50,11 +50,17 @@ export async function ensureLotterySchema() {
       event_title text not null default 'Σχολική γιορτή λήξης σχολικού έτους',
       booklet_input text not null default '',
       ticket_input text not null default '',
+      excluded_ticket_input text not null default '',
       prize_input text not null default '',
       batch_size integer not null default 10 check (batch_size between 1 and 50),
       interval_seconds integer not null default 5 check (interval_seconds between 1 and 30),
       updated_at timestamptz not null default now()
     )
+  `;
+
+  await sql`
+    alter table lottery_settings
+    add column if not exists excluded_ticket_input text not null default ''
   `;
 
   await sql`

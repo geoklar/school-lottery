@@ -74,6 +74,7 @@ type SavedState = {
   eventTitle: string;
   bookletInput: string;
   ticketInput: string;
+  excludedTicketInput: string;
   prizeInput: string;
   batchSize: number;
   intervalSeconds: number;
@@ -310,6 +311,16 @@ function mergeTickets(...ticketGroups: string[][]) {
   return tickets;
 }
 
+function ticketKey(ticket: string) {
+  return /^\d+$/.test(ticket) ? String(Number(ticket)) : ticket;
+}
+
+function excludeTickets(tickets: string[], excludedTickets: string[]) {
+  const excludedKeys = new Set(excludedTickets.map(ticketKey));
+
+  return tickets.filter((ticket) => !excludedKeys.has(ticketKey(ticket)));
+}
+
 function formatTicketGroupRange(groupTickets: string[]) {
   const firstTicket = groupTickets[0];
   const lastTicket = groupTickets.at(-1);
@@ -490,6 +501,7 @@ function LotteryApp() {
   const [eventTitle, setEventTitle] = useState("Σχολική γιορτή λήξης σχολικού έτους");
   const [bookletInput, setBookletInput] = useState("");
   const [ticketInput, setTicketInput] = useState("");
+  const [excludedTicketInput, setExcludedTicketInput] = useState("");
   const [prizeInput, setPrizeInput] = useState("");
   const [batchSize, setBatchSize] = useState(10);
   const [intervalSeconds, setIntervalSeconds] = useState(5);
@@ -511,10 +523,19 @@ function LotteryApp() {
 
   const bookletData = useMemo(() => parseBooklets(bookletInput), [bookletInput]);
   const manualTickets = useMemo(() => parseTickets(ticketInput), [ticketInput]);
-  const tickets = useMemo(
+  const excludedTickets = useMemo(
+    () => parseTickets(excludedTicketInput),
+    [excludedTicketInput],
+  );
+  const includedTickets = useMemo(
     () => mergeTickets(bookletData.tickets, manualTickets),
     [bookletData, manualTickets],
   );
+  const tickets = useMemo(
+    () => excludeTickets(includedTickets, excludedTickets),
+    [excludedTickets, includedTickets],
+  );
+  const excludedTicketCount = includedTickets.length - tickets.length;
   const ticketGroups = useMemo(() => makeTicketGroups(tickets, BOOKLET_SIZE), [tickets]);
   const prizes = useMemo(() => parsePrizes(prizeInput), [prizeInput]);
   const prizeLineNumbers = useMemo(() => makePrizeLineNumbers(prizeInput), [prizeInput]);
@@ -757,6 +778,7 @@ function LotteryApp() {
       ).join("\n"),
     );
     setTicketInput("");
+    setExcludedTicketInput("");
     setPrizeInput(
       [
         "Ποδήλατο",
@@ -794,7 +816,7 @@ function LotteryApp() {
     }
 
     const confirmed =
-      !bookletInput && !ticketInput && !prizeInput
+      !bookletInput && !ticketInput && !excludedTicketInput && !prizeInput
         ? true
         : window.confirm("Να καθαριστούν οι λαχνοί, τα δώρα και τα αποτελέσματα;");
 
@@ -804,12 +826,13 @@ function LotteryApp() {
 
     setBookletInput("");
     setTicketInput("");
+    setExcludedTicketInput("");
     setPrizeInput("");
     setResults([]);
     setDrawPlan([]);
     setCursor(0);
     setDrawStatus("ready");
-  }, [bookletInput, ensureAdminAction, prizeInput, ticketInput]);
+  }, [bookletInput, ensureAdminAction, excludedTicketInput, prizeInput, ticketInput]);
 
   const downloadPdf = useCallback(async () => {
     if (!isDrawComplete) {
@@ -860,6 +883,7 @@ function LotteryApp() {
     setEventTitle(parsed.eventTitle || "Σχολική γιορτή λήξης σχολικού έτους");
     setBookletInput(parsed.bookletInput || "");
     setTicketInput(parsed.ticketInput || "");
+    setExcludedTicketInput(parsed.excludedTicketInput || "");
     setPrizeInput(parsed.prizeInput || "");
     setBatchSize(clampNumber(Number(parsed.batchSize || 10), 1, 50));
     setIntervalSeconds(clampNumber(Number(parsed.intervalSeconds || 5), 1, 30));
@@ -961,6 +985,7 @@ function LotteryApp() {
       eventTitle,
       bookletInput,
       ticketInput,
+      excludedTicketInput,
       prizeInput,
       batchSize,
       intervalSeconds,
@@ -1012,6 +1037,7 @@ function LotteryApp() {
     batchSize,
     bookletInput,
     eventTitle,
+    excludedTicketInput,
     hasLoadedSavedState,
     intervalSeconds,
     isAdmin,
@@ -1210,14 +1236,14 @@ function LotteryApp() {
 
                 <label className="field">
                   <span className="label-line">
-                    Μεμονωμένοι λαχνοί
-                    <span className="count-chip">{tickets.length} συνολικά</span>
+                    Απούλητοι λαχνοί
+                    <span className="count-chip">{excludedTicketCount} εξαιρούνται</span>
                   </span>
                   <textarea
                     className="textarea compact"
-                    value={ticketInput}
-                    placeholder={"702\n703\nA12"}
-                    onChange={(event) => setTicketInput(event.target.value)}
+                    value={excludedTicketInput}
+                    placeholder={"51\n61-70\n164"}
+                    onChange={(event) => setExcludedTicketInput(event.target.value)}
                   />
                 </label>
 

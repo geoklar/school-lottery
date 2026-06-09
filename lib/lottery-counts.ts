@@ -1,6 +1,7 @@
 type CountableLotteryState = {
   bookletInput: string;
   ticketInput: string;
+  excludedTicketInput?: string;
   prizeInput: string;
   results: unknown[];
 };
@@ -107,6 +108,16 @@ function mergeTickets(...ticketGroups: string[][]) {
   return tickets;
 }
 
+function ticketKey(ticket: string) {
+  return /^\d+$/.test(ticket) ? String(Number(ticket)) : ticket;
+}
+
+function excludeTickets(tickets: string[], excludedTickets: string[]) {
+  const excludedKeys = new Set(excludedTickets.map(ticketKey));
+
+  return tickets.filter((ticket) => !excludedKeys.has(ticketKey(ticket)));
+}
+
 export function countPrizes(value: string) {
   return value
     .split(/\n+/)
@@ -115,7 +126,14 @@ export function countPrizes(value: string) {
 }
 
 export function getLotteryCounts(state: CountableLotteryState) {
-  const tickets = mergeTickets(parseBooklets(state.bookletInput), parseTickets(state.ticketInput));
+  const includedTickets = mergeTickets(
+    parseBooklets(state.bookletInput),
+    parseTickets(state.ticketInput),
+  );
+  const tickets = excludeTickets(
+    includedTickets,
+    parseTickets(state.excludedTicketInput ?? ""),
+  );
   const prizeCount = countPrizes(state.prizeInput);
   const ticketCount = tickets.length;
   const drawTotal = Math.min(ticketCount, prizeCount);

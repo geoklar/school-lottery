@@ -22,6 +22,7 @@ type LotteryState = {
   eventTitle: string;
   bookletInput: string;
   ticketInput: string;
+  excludedTicketInput: string;
   prizeInput: string;
   batchSize: number;
   intervalSeconds: number;
@@ -44,6 +45,7 @@ const defaultState: LotteryState = {
   eventTitle: "Σχολική γιορτή λήξης σχολικού έτους",
   bookletInput: "",
   ticketInput: "",
+  excludedTicketInput: "",
   prizeInput: "",
   batchSize: 10,
   intervalSeconds: 5,
@@ -106,6 +108,7 @@ function normalizeState(value: unknown): LotteryState {
     eventTitle: cleanString(raw.eventTitle, defaultState.eventTitle),
     bookletInput: cleanString(raw.bookletInput, ""),
     ticketInput: cleanString(raw.ticketInput, ""),
+    excludedTicketInput: cleanString(raw.excludedTicketInput, ""),
     prizeInput: cleanString(raw.prizeInput, ""),
     batchSize: clampNumber(raw.batchSize, defaultState.batchSize, 1, 50),
     intervalSeconds: clampNumber(raw.intervalSeconds, defaultState.intervalSeconds, 1, 30),
@@ -122,6 +125,7 @@ function sanitizeViewerState(state: LotteryState): LotteryState {
     ...state,
     bookletInput: "",
     ticketInput: "",
+    excludedTicketInput: "",
     prizeInput: "",
   };
 }
@@ -144,8 +148,8 @@ export async function GET() {
     await ensureLotterySchema();
     const sql = getSql();
     const [settings] = await sql`
-      select school_name, event_title, booklet_input, ticket_input, prize_input,
-        batch_size, interval_seconds
+      select school_name, event_title, booklet_input, ticket_input, excluded_ticket_input,
+        prize_input, batch_size, interval_seconds
       from lottery_settings
       where id = ${SETTINGS_ID}
       limit 1
@@ -161,6 +165,7 @@ export async function GET() {
       eventTitle: settings?.event_title ?? defaultState.eventTitle,
       bookletInput: settings?.booklet_input ?? "",
       ticketInput: settings?.ticket_input ?? "",
+      excludedTicketInput: settings?.excluded_ticket_input ?? "",
       prizeInput: settings?.prize_input ?? "",
       batchSize: settings?.batch_size ?? defaultState.batchSize,
       intervalSeconds: settings?.interval_seconds ?? defaultState.intervalSeconds,
@@ -225,19 +230,20 @@ export async function PUT(request: Request) {
     await sql.begin(async (transaction) => {
       await transaction`
         insert into lottery_settings (
-          id, school_name, event_title, booklet_input, ticket_input,
+          id, school_name, event_title, booklet_input, ticket_input, excluded_ticket_input,
           prize_input, batch_size, interval_seconds, updated_at
         )
         values (
           ${SETTINGS_ID}, ${state.schoolName}, ${state.eventTitle}, ${state.bookletInput},
-          ${state.ticketInput}, ${state.prizeInput}, ${state.batchSize},
-          ${state.intervalSeconds}, now()
+          ${state.ticketInput}, ${state.excludedTicketInput}, ${state.prizeInput},
+          ${state.batchSize}, ${state.intervalSeconds}, now()
         )
         on conflict (id) do update set
           school_name = excluded.school_name,
           event_title = excluded.event_title,
           booklet_input = excluded.booklet_input,
           ticket_input = excluded.ticket_input,
+          excluded_ticket_input = excluded.excluded_ticket_input,
           prize_input = excluded.prize_input,
           batch_size = excluded.batch_size,
           interval_seconds = excluded.interval_seconds,
