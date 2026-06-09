@@ -719,15 +719,9 @@ button {
 .winner-topline {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   margin-bottom: 10px;
-}
-
-.winner-index {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 900;
 }
 
 .winner-ticket {

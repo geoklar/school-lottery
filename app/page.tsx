@@ -1406,7 +1406,6 @@ function LotteryApp() {
                           />
                           <div className="winner-content">
                             <div className="winner-topline">
-                              <span className="winner-index">Δώρο #{result.order}</span>
                               <span className="winner-ticket">
                                 <Ticket size={16} />
                                 {result.ticket}
