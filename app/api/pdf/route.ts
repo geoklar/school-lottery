@@ -217,14 +217,12 @@ export async function POST(request: Request) {
 
     const tableBody = [
       [
-        { text: "Δώρο #", style: "tableHeader" },
         { text: "Λαχνός", style: "tableHeader" },
         { text: "Δώρο", style: "tableHeader" },
         { text: "Παρτίδα", style: "tableHeader" },
         { text: "Ώρα", style: "tableHeader" },
       ],
       ...sortedResults.map((result) => [
-        String(result.order),
         { text: result.ticket, style: "ticket" },
         result.prize,
         String(result.batch),
@@ -261,7 +259,7 @@ export async function POST(request: Request) {
         {
           table: {
             headerRows: 1,
-            widths: [32, 68, "*", 50, 96],
+            widths: [72, "*", 54, 110],
             body: tableBody,
           },
           layout: {
