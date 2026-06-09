@@ -37,6 +37,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 type DrawStatus = "ready" | "running" | "paused" | "done";
 type ActiveSection = "draw" | "admin";
 type StorageMode = "loading" | "database" | "local" | "error";
+type LoadedStateAccess = "admin" | "viewer" | null;
 type PrizeVisualKey =
   | "bike"
   | "book"
@@ -533,6 +534,7 @@ function LotteryApp() {
   const [toast, setToast] = useState("");
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [hasLoadedSavedState, setHasLoadedSavedState] = useState(false);
+  const [loadedStateAccess, setLoadedStateAccess] = useState<LoadedStateAccess>(null);
   const [activeSection, setActiveSection] = useState<ActiveSection>("draw");
   const [storageMode, setStorageMode] = useState<StorageMode>("loading");
   const [isRemoteSaving, setIsRemoteSaving] = useState(false);
@@ -940,6 +942,8 @@ function LotteryApp() {
     let isMounted = true;
 
     async function loadState() {
+      setLoadedStateAccess(null);
+
       try {
         const response = await fetch("/api/state", {
           cache: "no-store",
@@ -967,21 +971,26 @@ function LotteryApp() {
           applySavedState(payload.state);
           setPublicStats(payload.publicStats ?? null);
           setStorageMode("database");
+          setLoadedStateAccess(isAdmin ? "admin" : "viewer");
         } else {
           setPublicStats(payload.publicStats ?? null);
 
           if (isAdmin) {
             loadLocalState();
+            setLoadedStateAccess("admin");
           } else {
             setStorageMode("local");
+            setLoadedStateAccess("viewer");
           }
         }
       } catch {
         if (isMounted) {
           if (isAdmin) {
             loadLocalState();
+            setLoadedStateAccess("admin");
           } else {
             setStorageMode("error");
+            setLoadedStateAccess("viewer");
           }
         }
       } finally {
@@ -999,7 +1008,12 @@ function LotteryApp() {
   }, [applySavedState, isAdmin, loadLocalState, sessionStatus]);
 
   useEffect(() => {
-    if (!hasLoadedSavedState || !isAdmin || sessionStatus !== "authenticated") {
+    if (
+      !hasLoadedSavedState ||
+      loadedStateAccess !== "admin" ||
+      !isAdmin ||
+      sessionStatus !== "authenticated"
+    ) {
       return;
     }
 
@@ -1064,6 +1078,7 @@ function LotteryApp() {
     hasLoadedSavedState,
     intervalSeconds,
     isAdmin,
+    loadedStateAccess,
     prizeInput,
     results,
     schoolName,
